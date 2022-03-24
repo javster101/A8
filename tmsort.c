@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
+#include <pthread.h>
 
 #include <unistd.h>
 
@@ -22,6 +23,16 @@
 
 /** The number of threads to be used for sorting. Default: 1 */
 int thread_count = 1;
+
+typedef struct {
+  long* nums;
+  int from;
+  int to;
+  long* target;
+  int thread_count;
+} merge_aux_exec_args;
+
+void* merge_sort_aux_exec(void*);
 
 /**
  * Compute the delta between the given timevals in seconds.
@@ -74,17 +85,34 @@ void merge(long nums[], int from, int mid, int to, long target[]) {
  *
  * Warning: nums gets overwritten.
  */
-void merge_sort_aux(long nums[], int from, int to, long target[]) {
+void merge_sort_aux(long nums[], int from, int to, long target[], int thread_count) {
   if (to - from <= 1) {
     return;
   }
 
   int mid = (from + to) / 2;
-  merge_sort_aux(target, from, mid, nums);
-  merge_sort_aux(target, mid, to, nums);
+
+  if (thread_count < 2) {
+    merge_sort_aux(target, from, mid, nums, 1);
+    merge_sort_aux(target, mid, to, nums, 1);
+  } else {
+    merge_aux_exec_args args = { target, from, mid, nums, (thread_count + 1) / 2 };
+  
+    pthread_t thread;
+    void* ret;
+    pthread_create(&thread, NULL, merge_sort_aux_exec, &args);
+    merge_sort_aux(target, mid, to, nums, thread_count / 2);
+    pthread_join(thread, &ret);
+  }
+    
   merge(nums, from, mid, to, target);
 }
 
+void* merge_sort_aux_exec(void* args) {
+  merge_aux_exec_args* exec_args = (merge_aux_exec_args*) args;
+  merge_sort_aux(exec_args->nums, exec_args->from, exec_args->to, exec_args->target, exec_args->thread_count);
+  pthread_exit(NULL);
+}
 
 /**
  * Sort the given array and return the sorted version.
@@ -93,13 +121,13 @@ void merge_sort_aux(long nums[], int from, int to, long target[]) {
  *
  * Warning: The source array gets overwritten.
  */
-long *merge_sort(long nums[], int count) {
+long *merge_sort(long nums[], int count, int threads) {
   long *result = calloc(count, sizeof(long));
   assert(result != NULL);
 
   memmove(result, nums, count * sizeof(long));
 
-  merge_sort_aux(nums, 0, count, result);
+  merge_sort_aux(nums, 0, count, result, threads);
 
   return result;
 }
@@ -152,7 +180,7 @@ int main(int argc, char **argv) {
  
   // Sort the array
   gettimeofday(&begin, 0);
-  long *result = merge_sort(array, count);
+  long *result = merge_sort(array, count, thread_count);
   gettimeofday(&end, 0);
   
   log("Sorting completed in %f seconds.\n", time_in_secs(&begin, &end));
