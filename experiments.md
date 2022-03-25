@@ -121,7 +121,7 @@ Sorting portion timings:
 ## Host 2: Custom Desktop PC
 
  - CPU: AMD Ryzen 3700X
- - Cores: 8 real cores, 4 logical cores
+ - Cores: 8 real cores, 16 logical cores
  - Cache: L3=32MB, L2=4MB, L1=0.5MB
  - RAM: 32GB
  - OS: Arch Linux
